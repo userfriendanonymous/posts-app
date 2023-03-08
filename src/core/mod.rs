@@ -26,7 +26,7 @@ impl Session {
 
     pub async fn create_post(&self, title: String, content: String) -> Result<i32, String> {
         let Auth::Valid {info: _} = self.auth_info else {
-            return Err("Unauthorized!".to_string());
+            return Err(format!("Unauthorized: {}", self.auth_info.unwrap_invalid_message()).to_string());
         };
         posts::create(self.db_pool.clone(), title, content).await
     }
@@ -37,6 +37,14 @@ impl Session {
 
     pub async fn get_posts(&self, limit: u32, offset: u32) -> Result<Vec<Post>, String> {
         posts::get_many(self.db_pool.clone(), limit, offset).await
+    }
+
+    pub async fn delete_post(&self, id: i32) -> Result<Post, String> {
+        posts::delete(self.db_pool.clone(), id).await
+    }
+
+    pub async fn update_post(&self, id: i32, title: Option<String>, content: Option<String>) -> Result<Post, String> {
+        posts::update(self.db_pool.clone(), id, title, content).await
     }
 
     pub async fn register(&mut self, name: String, password: String, email: String) -> Result<Tokens, String> {

@@ -1,4 +1,4 @@
-use actix_web::{Scope, web::{self, Query}, get, Responder, HttpResponse, post, web::Path};
+use actix_web::{Scope, web::{self, Query}, get, Responder, HttpResponse, post, web::Path, delete, patch};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -81,5 +81,43 @@ pub async fn get_many(app_state: AppStateData, query: Query<GetManyQuery>) -> im
                 "message": error
             }));
         }
+    }
+}
+
+#[delete("/{id}")]
+pub async fn delete(app_state: AppStateData, path: Path<i32>) -> impl Responder {
+    let Some(ref session) = *app_state.session.read().unwrap() else {
+        return HttpResponse::InternalServerError().json(json!({
+            "message": "user session doesn't exist"
+        }));
+    };
+
+    match session.delete_post(*path).await {
+        Ok(post) => HttpResponse::Ok().json(post),
+        Err(error) => HttpResponse::InternalServerError().json(json!({
+            "message": error
+        }))
+    }
+}
+
+#[derive(Deserialize)]
+pub struct UpdateBody {
+    pub title: Option<String>,
+    pub content: Option<String>
+}
+
+#[patch("/{id}")]
+pub async fn update(app_state: AppStateData, id: Path<i32>, body: web::Json<UpdateBody>) -> impl Responder {
+    let Some(ref session) = *app_state.session.read().unwrap() else {
+        return HttpResponse::InternalServerError().json(json!({
+            "message": "user session doesn't exist"
+        }));
+    };
+
+    match session.update_post(*id, body.title.clone(), body.content.clone()).await {
+        Ok(post) => HttpResponse::Ok().json(post),
+        Err(error) => HttpResponse::InternalServerError().json(json!({
+            "message": error
+        }))
     }
 }

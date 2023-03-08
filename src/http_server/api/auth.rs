@@ -30,10 +30,12 @@ pub async fn login(app_state: AppStateData, body: web::Json<LoginBody>) -> impl 
             .cookie(
                 Cookie::build("access-token", tokens.access)
                 .http_only(true)
+                .secure(false)
                 .finish()
             )
             .cookie(
                 Cookie::build("key-token", tokens.key)
+                .secure(false)
                 .finish()
             )
             .json(json!({
@@ -71,10 +73,12 @@ pub async fn register(app_state: AppStateData, body: web::Json<RegisterBody>) ->
             .cookie(
                 Cookie::build("access-token", tokens.access)
                 .http_only(true)
+                .secure(false)
                 .finish()
             )
             .cookie(
                 Cookie::build("key-token", tokens.key)
+                .secure(false)
                 .finish()
             )
             .json(json!({

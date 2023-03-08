@@ -1,0 +1,1 @@
+*Some random posts app with auth*

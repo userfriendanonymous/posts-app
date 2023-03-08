@@ -48,6 +48,15 @@ pub struct Middleware<Service> {
     app_state: AppStateData
 }
 
+fn get_cookie(request: &ServiceRequest, name: &str) -> Option<String> {
+    request.cookie(name).map(|cookie| {
+        let cookie = cookie.to_string();
+        let mut iter = cookie.split("=");
+        iter.next();
+        iter.next().map(|value| String::from(value)).unwrap_or_default()
+    })
+}
+
 impl<S, ResponseBody> Service<ServiceRequest> for Middleware<S>
 where
     S: Service<ServiceRequest, Response = ServiceResponse<ResponseBody>, Error = Error>,
@@ -64,9 +73,11 @@ where
         println!("Hi from start. You requested: {}", request.path());
 
         let tokens = Tokens {
-            access: request.cookie("access-token").map(|cookie| cookie.to_string()).unwrap_or_default(),
-            key: request.cookie("key-token").map(|cookie| cookie.to_string()).unwrap_or_default()
+            access: get_cookie(&request, "access-token").unwrap_or_default(),
+            key: get_cookie(&request, "key-token").unwrap_or_default()
         };
+
+        println!("tokens: {tokens:?}");
 
         let mut session = self.app_state.session.write().unwrap();
         *session = Some(

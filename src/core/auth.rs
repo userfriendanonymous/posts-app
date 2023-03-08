@@ -3,6 +3,7 @@ use rand::Rng;
 use serde::{Serialize, Deserialize};
 use pwhash::bcrypt;
 
+#[derive(Debug)]
 pub struct Tokens {
     pub access: String,
     pub key: String
@@ -34,10 +35,20 @@ pub enum Auth {
     Invalid(String)
 }
 
+impl Auth {
+    pub fn unwrap_invalid_message(&self) -> String {
+        let Auth::Invalid(message) = self else {
+            panic!("Called unwrap_invalid on Auth::Valid");
+        };
+
+        message.clone()
+    }
+}
+
 mod keys {
     use std::sync::Mutex;
 
-    #[derive(Clone)]
+    #[derive(Clone, Debug)] // remove debug!
     pub struct Object {
         pub access: String,
         pub key: String,
@@ -69,14 +80,14 @@ pub fn get_tokens(info: Info) -> Result<Tokens, String> {
     let key: String = (0..20).map(|_| rng.sample(rand::distributions::Alphanumeric) as char).collect();
 
     let access_claims = AccessClaims {
-        name: info.name,
+        name: info.name.clone(),
         key: key.clone(),
-        exp
+        exp,
     };
 
     let key_claims = KeyClaims {
         key,
-        exp
+        exp,
     };
 
     let keys = get_keys();
@@ -88,6 +99,8 @@ pub fn get_tokens(info: Info) -> Result<Tokens, String> {
     let key_token = encode(&header, &key_claims, &EncodingKey::from_secret(&keys.key.as_bytes()))
     .or_else(|error| Err(error.to_string()))?;
 
+    println!("get tokens.: access - {}, key - {}", access_token.clone(), key_token.clone());
+
     Ok(Tokens {
         access: access_token,
         key: key_token
@@ -95,14 +108,20 @@ pub fn get_tokens(info: Info) -> Result<Tokens, String> {
 }
 
 pub fn verify_tokens(tokens: &Tokens) -> Auth {
+    let tokens = Tokens {
+        access: String::from("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJuYW1lIjoibG9saSIsImtleSI6IjJnR3FqR01XMHlkMFZ5MFUwbVBBIiwiZXhwIjoxNjgwODYzNjY0LCJzdWIiOiJsb2xpIn0.67rCj2lEKzkdCCPYucaKDfF-rESdO6mI2DH3HDZ4yTRZMxEpCaee59nqokIGWVCGSxe-sbeWrb_HbOpMh20WPw"),
+        key: String::from("eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzUxMiJ9.eyJrZXkiOiIyZ0dxakdNVzB5ZDBWeTBVMG1QQSIsImV4cCI6MTY4MDg2MzY2NCwic3ViIjoibG9saSA6a2V5In0.zHlbesYBo859dYjAl_aZnYI6ZudCLHhhlQ69Eda3CdknKYBRSice-FtYTxzIahsgbv5oOv1jTK4SKXN0NTF2lg")
+    };
     let keys = get_keys();
+    println!("trying to auth: KEYS - {keys:?}, TOKENS - {tokens:?}");
+
     let access_claims = match decode::<AccessClaims>(
         &tokens.access,
         &DecodingKey::from_secret(&keys.access.as_bytes()),
         &Validation::new(Algorithm::HS512)
     ) {
         Ok(claims) => claims,
-        Err(error) => return Auth::Invalid(error.to_string())
+        Err(error) => return Auth::Invalid(format!("access token - {}", error.to_string()))
     }.claims;
 
     let key_claims = match decode::<KeyClaims>(
@@ -111,7 +130,7 @@ pub fn verify_tokens(tokens: &Tokens) -> Auth {
         &Validation::new(Algorithm::HS512)
     ) {
         Ok(claims) => claims,
-        Err(error) => return Auth::Invalid(error.to_string())
+        Err(error) => return Auth::Invalid(format!("key token - {}", error.to_string()))
     }.claims;
 
     if key_claims.key != access_claims.key {
